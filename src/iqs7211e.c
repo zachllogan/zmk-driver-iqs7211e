@@ -1289,10 +1289,11 @@ static int iqs7211e_pm_action(const struct device *dev, enum pm_device_action ac
             }
         }
         
-        // FIX: Skip the full hardware reset and Re-ATI on wake.
-        // The chip retained its memory map and baseline during suspend.
-        data->init_complete = true; 
-
+        ret = iqs7211e_configure(dev);
+        if (ret < 0) {
+            LOG_ERR("Failed to reconfigure device: %d", ret);
+            return ret;
+        }
         break;
         
     default:
