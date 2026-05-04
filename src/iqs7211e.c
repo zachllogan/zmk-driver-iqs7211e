@@ -1279,24 +1279,20 @@ static int iqs7211e_pm_action(const struct device *dev, enum pm_device_action ac
             ret = gpio_pin_configure_dt(&cfg->irq_gpio, GPIO_INPUT);
             if (ret < 0) {
                 LOG_ERR("Failed to configure IRQ GPIO: %d", ret);
-                LOG_DBG("%s end 3", __func__);
                 return ret;
             }
             
             ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
             if (ret < 0) {
                 LOG_ERR("Failed to enable IRQ interrupt: %d", ret);
-                LOG_DBG("%s end 4", __func__);
                 return ret;
             }
         }
         
-        ret = iqs7211e_configure(dev);
-        if (ret < 0) {
-            LOG_ERR("Failed to reconfigure device: %d", ret);
-            LOG_DBG("%s end 5", __func__);
-            return ret;
-        }
+        // FIX: Skip the full hardware reset and Re-ATI on wake.
+        // The chip retained its memory map and baseline during suspend.
+        data->init_complete = true; 
+
         break;
         
     default:
