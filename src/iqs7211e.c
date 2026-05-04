@@ -411,7 +411,7 @@ static bool iqs7211e_is_ready(const struct device *dev) {
     }
     
     // RDY pin is active LOW, so device is ready when pin is LOW
-    bool ret = !gpio_pin_get_dt(&cfg->irq_gpio);
+    bool ret = gpio_pin_get_dt(&cfg->irq_gpio);
     LOG_DBG("%s end 2", __func__);
     return ret;
 }
