@@ -760,7 +760,7 @@ static int iqs7211e_interrupt_configure(const struct device *dev, gpio_flags_t f
 
 static void iqs7211e_interrupt_enable(const struct device *dev) {
     LOG_DBG("%s start", __func__);
-    int ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
+    int ret = iqs7211e_interrupt_configure(dev, GPIO_INT_EDGE_TO_ACTIVE);
 
     if (ret < 0) {
         LOG_ERR("Failed to re-enable IRQ interrupt: %d", ret);
@@ -1218,7 +1218,7 @@ static int iqs7211e_init(const struct device *dev) {
     }
     
     if (gpio_is_ready_dt(&cfg->irq_gpio)) {
-        ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
+        ret = iqs7211e_interrupt_configure(dev, GPIO_INT_EDGE_TO_ACTIVE);
         if (ret != 0) {
             LOG_ERR("Motion interrupt configuration failed: %d", ret);
             LOG_DBG("%s end 7", __func__);
