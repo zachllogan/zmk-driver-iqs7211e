@@ -1226,12 +1226,12 @@ static int iqs7211e_init(const struct device *dev) {
         }
     }
     
-    ret = pm_device_runtime_enable(dev);
-    if (ret < 0) {
-        LOG_ERR("Failed to enable runtime power management: %d", ret);
-        LOG_DBG("%s end 8", __func__);
-        return ret;
-    }
+    // ret = pm_device_runtime_enable(dev);
+    // if (ret < 0) {
+    //     LOG_ERR("Failed to enable runtime power management: %d", ret);
+    //     LOG_DBG("%s end 8", __func__);
+    //     return ret;
+    // }
     
     LOG_DBG("%s end 9", __func__);
     return 0;
