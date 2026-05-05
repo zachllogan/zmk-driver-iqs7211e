@@ -386,10 +386,18 @@ static void iqs7211e_process_scroller_motion(struct iqs7211e_data *data,
 }
 
 static int iqs7211e_i2c_read_reg(const struct device *dev, uint8_t reg, uint8_t *data, uint8_t len) {
-    LOG_DBG("%s start", __func__);
     const struct iqs7211e_config *cfg = dev->config;
-    int ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
-    LOG_DBG("%s end 1", __func__);
+    int ret;
+
+    // Try once
+    ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
+    
+    // If it fails (NACK), the chip might be waking up from LP mode. Try once more.
+    if (ret < 0) {
+        k_busy_wait(100); // Tiny 100us pause to let I2C clocks stabilize
+        ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
+    }
+
     return ret;
 }
 
@@ -796,12 +804,12 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
     }
     
     // Only read data if device is ready
-    if (!iqs7211e_is_ready(dev)) {
-        LOG_WRN("Device not ready for motion data");
-        iqs7211e_interrupt_enable(dev);
-        LOG_DBG("%s end 2", __func__);
-        return;
-    }
+    // if (!iqs7211e_is_ready(dev)) {
+    //     LOG_WRN("Device not ready for motion data");
+    //     iqs7211e_interrupt_enable(dev);
+    //     LOG_DBG("%s end 2", __func__);
+    //     return;
+    // }
     
     ret = iqs7211e_get_base_data(dev, &base_data);
     if (ret < 0) {
@@ -809,6 +817,13 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
         iqs7211e_interrupt_enable(dev);
         LOG_DBG("%s end 3", __func__);
         return;
+    }
+
+    /* After iqs7211e_get_base_data succeeds */
+    if (base_data.info_flags[0] & (1 << IQS7211E_SHOW_RESET_BIT)) {
+        LOG_INF("LP Wake-up caused a chip reset, re-acknowledging...");
+        iqs7211e_acknowledge_reset(dev);
+        // Optional: Call iqs7211e_set_event_mode(dev, true) here to be safe
     }
  
     uint8_t finger_count = base_data.info_flags[1] & 0x03;
