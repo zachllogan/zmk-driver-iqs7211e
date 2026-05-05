@@ -70,9 +70,9 @@
 #define ACTIVE_MODE_TIMEOUT_1                    0x00
 #define IDLE_TOUCH_MODE_TIMEOUT_0                0x3C
 #define IDLE_TOUCH_MODE_TIMEOUT_1                0x00
-#define IDLE_MODE_TIMEOUT_0                      0x00
+#define IDLE_MODE_TIMEOUT_0                      0x0A
 #define IDLE_MODE_TIMEOUT_1                      0x00
-#define LP1_MODE_TIMEOUT_0                       0x00
+#define LP1_MODE_TIMEOUT_0                       0x0A
 #define LP1_MODE_TIMEOUT_1                       0x00
 #define REATI_RETRY_TIME                         0x05
 #define REF_UPDATE_TIME                          0x08
