@@ -257,7 +257,7 @@ static void iqs7211e_inertia_work_handler(struct k_work *work) {
     wheel_active = iqs7211e_abs32(data->inertia_wheel_velocity_q8) >=
                    CONFIG_IQS7211E_SCROLLER_INERTIA_STOP_THRESHOLD_Q8;
     hwheel_active = iqs7211e_abs32(data->inertia_hwheel_velocity_q8) >=
-                    CONFIG_IQS7211E_SCROLLER_INERTIA_STOP_THRESHOLD_Q8;
+                     CONFIG_IQS7211E_SCROLLER_INERTIA_STOP_THRESHOLD_Q8;
 
     if (!wheel_active) {
         data->inertia_wheel_velocity_q8 = 0;
@@ -386,18 +386,10 @@ static void iqs7211e_process_scroller_motion(struct iqs7211e_data *data,
 }
 
 static int iqs7211e_i2c_read_reg(const struct device *dev, uint8_t reg, uint8_t *data, uint8_t len) {
+    LOG_DBG("%s start", __func__);
     const struct iqs7211e_config *cfg = dev->config;
-    int ret;
-
-    // Try once
-    ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
-    
-    // If it fails (NACK), the chip might be waking up from LP mode. Try once more.
-    if (ret < 0) {
-        k_busy_wait(100); // Tiny 100us pause to let I2C clocks stabilize
-        ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
-    }
-
+    int ret = i2c_burst_read_dt(&cfg->i2c, reg, data, len);
+    LOG_DBG("%s end 1", __func__);
     return ret;
 }
 
@@ -420,6 +412,7 @@ static bool iqs7211e_is_ready(const struct device *dev) {
     
     // RDY pin is active LOW, so device is ready when pin is LOW
     bool ret = gpio_pin_get_dt(&cfg->irq_gpio);
+    LOG_INF("[IQS7211E DEBUG] iqs7211e_is_ready() read IRQ pin %d. Result: %d", cfg->irq_gpio.pin, ret);
     LOG_DBG("%s end 2", __func__);
     return ret;
 }
@@ -428,13 +421,17 @@ static void iqs7211e_wait_for_ready(const struct device *dev, uint16_t timeout_m
     LOG_DBG("%s start", __func__);
     uint16_t elapsed = 0;
     
+    LOG_INF("[IQS7211E DEBUG] iqs7211e_wait_for_ready() initiated. Timeout: %d ms", timeout_ms);
     while (!iqs7211e_is_ready(dev) && elapsed < timeout_ms) {
         k_sleep(K_MSEC(1));
         elapsed++;
     }
     
     if (elapsed >= timeout_ms) {
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_wait_for_ready() TIMEOUT out after %d ms!", timeout_ms);
         LOG_WRN("RDY timeout after %dms", timeout_ms);
+    } else {
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_wait_for_ready() SUCCESS after %d ms.", elapsed);
     }
     LOG_DBG("%s end 1", __func__);
 }
@@ -444,9 +441,11 @@ static int iqs7211e_get_base_data(const struct device *dev, azoteq_iqs7211e_base
     uint8_t transfer_bytes[8];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_get_base_data()");
     iqs7211e_wait_for_ready(dev, 50);
     
     if (!iqs7211e_is_ready(dev)) {
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_get_base_data(): Device NOT READY. Aborting read.");
         LOG_WRN("Device not ready for data read");
         LOG_DBG("%s end 1", __func__);
         return -EIO;
@@ -517,6 +516,7 @@ static int iqs7211e_acknowledge_reset(const struct device *dev) {
     uint8_t transfer_bytes[2];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_acknowledge_reset()");
     iqs7211e_wait_for_ready(dev, 50);
     
     ret = iqs7211e_i2c_read_reg(dev, IQS7211E_MM_SYS_CONTROL, transfer_bytes, 2);
@@ -540,6 +540,7 @@ static int iqs7211e_reati(const struct device *dev) {
     uint8_t transfer_bytes[2];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_reati()");
     iqs7211e_wait_for_ready(dev, 100);
     
     ret = iqs7211e_i2c_read_reg(dev, IQS7211E_MM_SYS_CONTROL, transfer_bytes, 2);
@@ -564,10 +565,12 @@ static uint16_t iqs7211e_get_product(const struct device *dev) {
     uint8_t transfer_bytes[2];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_get_product()");
     iqs7211e_wait_for_ready(dev, 100);
     
     if (!iqs7211e_is_ready(dev)) {
         data->product_number = 0xff;
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_get_product(): Device NOT READY. Aborting read.");
         LOG_WRN("Device not ready for product read");
         LOG_DBG("%s end 1", __func__);
         return 0;
@@ -669,9 +672,11 @@ static int iqs7211e_check_reset(const struct device *dev) {
     uint8_t transfer_bytes[2];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_check_reset()");
     iqs7211e_wait_for_ready(dev, 50);
     
     if (!iqs7211e_is_ready(dev)) {
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_check_reset(): Device NOT READY. Aborting.");
         LOG_WRN("Device not ready for reset check");
         LOG_DBG("%s end 1", __func__);
         return -EIO;
@@ -693,9 +698,11 @@ static bool iqs7211e_read_ati_active(const struct device *dev) {
     uint8_t transfer_bytes[2];
     int ret;
     
+    LOG_INF("[IQS7211E DEBUG] Entering iqs7211e_read_ati_active()");
     iqs7211e_wait_for_ready(dev, 500);
     
     if (!iqs7211e_is_ready(dev)) {
+        LOG_INF("[IQS7211E DEBUG] iqs7211e_read_ati_active(): Device NOT READY. Aborting.");
         LOG_WRN("Device not ready for ATI check");
         LOG_DBG("%s end 1", __func__);
         return true;
@@ -715,6 +722,7 @@ static bool iqs7211e_read_ati_active(const struct device *dev) {
 
 static void iqs7211e_suspend(const struct device *dev) {
     LOG_DBG("%s start", __func__);
+    LOG_INF("[IQS7211E DEBUG] iqs7211e_suspend(): Writing SYS_CONTROL bit to SLEEP trackpad.");
     uint8_t transfer_bytes[2];
     iqs7211e_i2c_read_reg(dev, IQS7211E_MM_SYS_CONTROL, transfer_bytes, 2);
     transfer_bytes[1] |= (1 << 3);
@@ -725,6 +733,7 @@ static void iqs7211e_suspend(const struct device *dev) {
 
 static void iqs7211e_resume(const struct device *dev) {
     LOG_DBG("%s start", __func__);
+    LOG_INF("[IQS7211E DEBUG] iqs7211e_resume(): Writing SYS_CONTROL bit to WAKE trackpad.");
     uint8_t transfer_bytes[2];
     iqs7211e_i2c_read_reg(dev, IQS7211E_MM_SYS_CONTROL, transfer_bytes, 2);
     transfer_bytes[1] &= ~(1 << 3);
@@ -795,6 +804,7 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
     int ret;
     int64_t current_time = k_uptime_get();
     
+    LOG_INF("[IQS7211E DEBUG] -> iqs7211e_motion_work_handler executing!");
     LOG_DBG("Motion work handler started");
     if (!data->init_complete) {
         LOG_WRN("Device not initialized, skipping motion handling");
@@ -803,13 +813,16 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
         return;
     }
     
+    LOG_INF("[IQS7211E DEBUG] motion_work_handler: calling iqs7211e_is_ready...");
     // Only read data if device is ready
-    // if (!iqs7211e_is_ready(dev)) {
-    //     LOG_WRN("Device not ready for motion data");
-    //     iqs7211e_interrupt_enable(dev);
-    //     LOG_DBG("%s end 2", __func__);
-    //     return;
-    // }
+    if (!iqs7211e_is_ready(dev)) {
+        LOG_INF("[IQS7211E DEBUG] motion_work_handler: is_ready returned FALSE! Aborting I2C read.");
+        LOG_WRN("Device not ready for motion data");
+        iqs7211e_interrupt_enable(dev);
+        LOG_DBG("%s end 2", __func__);
+        return;
+    }
+    LOG_INF("[IQS7211E DEBUG] motion_work_handler: is_ready returned TRUE. Proceeding to get_base_data.");
     
     ret = iqs7211e_get_base_data(dev, &base_data);
     if (ret < 0) {
@@ -817,13 +830,6 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
         iqs7211e_interrupt_enable(dev);
         LOG_DBG("%s end 3", __func__);
         return;
-    }
-
-    /* After iqs7211e_get_base_data succeeds */
-    if (base_data.info_flags[0] & (1 << IQS7211E_SHOW_RESET_BIT)) {
-        LOG_INF("LP Wake-up caused a chip reset, re-acknowledging...");
-        iqs7211e_acknowledge_reset(dev);
-        // Optional: Call iqs7211e_set_event_mode(dev, true) here to be safe
     }
  
     uint8_t finger_count = base_data.info_flags[1] & 0x03;
@@ -973,389 +979,3 @@ static void iqs7211e_motion_work_handler(struct k_work *work) {
                         data->double_tap_hold = true;
                         data->is_clicking = true;
                         input_report_key(dev, INPUT_BTN_0, 1, true, K_FOREVER);
-                        data->tap_count = 0;
-                    } else {
-                        // Single tap
-                        if (!data->double_tap_hold) {
-                            LOG_DBG("Single tap - press");
-                            input_report_key(dev, INPUT_BTN_0, 1, true, K_FOREVER);
-                            data->pending_click_type = 1;
-                            k_work_schedule(&data->click_work, K_MSEC(50));
-                        }
-                        data->tap_count = 1;
-                    }
-                    data->last_tap_time = current_time;
-                } else if (data->double_tap_hold && data->is_clicking) {
-                    // Release double-tap hold
-                    LOG_DBG("Release double tap hold");
-                    data->double_tap_hold = false;
-                    data->is_clicking = false;
-                    input_report_key(dev, INPUT_BTN_0, 0, true, K_FOREVER);
-                } else if (!tap_allowed) {
-                    LOG_DBG("Single finger tap ignored near sensor edge");
-                    data->tap_count = 0;
-                    data->double_tap_hold = false;
-                }
-                
-                // Reset tap count if too much time passed
-                if (current_time - data->last_tap_time > 600) {
-                    data->tap_count = 0;
-                }
-            }
-        }
-
-#if defined(CONFIG_IQS7211E_SCROLLER_INERTIA) && CONFIG_IQS7211E_SCROLLER_INERTIA
-        if (cfg->scroller_mode && data->scroll_was_active) {
-            iqs7211e_start_inertia_scroll(data);
-        }
-#endif
-        
-        data->previous_valid = false;
-        data->finger_2_prev_valid = false;
-        data->scroll_was_active = false;
-        data->gesture_started_near_edge = false;
-        data->scroller_axis_lock = IQS7211E_SCROLL_AXIS_NONE;
-    }
-
-    iqs7211e_interrupt_enable(dev);
-    LOG_DBG("%s end 4", __func__);
-}
-
-static void iqs7211e_motion_handler(const struct device *gpio_dev, struct gpio_callback *cb, uint32_t pins) {
-    LOG_DBG("%s start", __func__);
-    struct iqs7211e_data *data = CONTAINER_OF(cb, struct iqs7211e_data, motion_cb);
-
-    ARG_UNUSED(gpio_dev);
-    ARG_UNUSED(pins);
-
-    iqs7211e_interrupt_disable(data->dev);
-
-    k_work_submit(&data->motion_work);
-    LOG_DBG("%s end 1", __func__);
-}
-
-static int iqs7211e_configure(const struct device *dev) {
-    LOG_DBG("%s start", __func__);
-    struct iqs7211e_data *data = dev->data;
-    const struct iqs7211e_config *cfg = dev->config;
-    int ret;
-    
-    LOG_DBG("Initialization started");
-    
-    // Wait for device to be ready
-    iqs7211e_wait_for_ready(dev, 100);
-    
-    // Software reset
-    ret = iqs7211e_reset(dev);
-    if (ret < 0) {
-        LOG_ERR("Reset failed: %d", ret);
-        LOG_DBG("%s end 1", __func__);
-        return ret;
-    }
-    
-    k_sleep(K_MSEC(IQS7211E_RESET_DELAY_MS));
-    
-    // Wait for device to be ready after reset
-    iqs7211e_wait_for_ready(dev, 200);
-    
-    // Check product number
-    if (iqs7211e_get_product(dev) == AZOTEQ_IQS7211E_PRODUCT_NUM) {
-        LOG_DBG("Device found");
-        
-        // Check if reset occurred
-        if (iqs7211e_check_reset(dev) == 0) {
-            LOG_DBG("Reset event confirmed");
-            
-            // Write all settings from init file
-            ret = iqs7211e_write_memory_map(dev);
-            if (ret == 0) {
-                // Acknowledge reset
-                ret = iqs7211e_acknowledge_reset(dev);
-                if (ret < 0) {
-                    LOG_DBG("%s end 2", __func__);
-                    return ret;
-                }
-                
-                k_sleep(K_MSEC(100));
-                
-                // Run ATI
-                ret = iqs7211e_reati(dev);
-                if (ret < 0) {
-                    LOG_DBG("%s end 3", __func__);
-                    return ret;
-                }
-                
-                // Wait for ATI to complete
-                int ati_timeout = IQS7211E_ATI_TIMEOUT_CYCLES;
-                while (iqs7211e_read_ati_active(dev) && ati_timeout > 0) {
-                    k_sleep(K_MSEC(50));
-                    ati_timeout--;
-                }
-                
-                if (ati_timeout > 0) {
-                    LOG_DBG("ATI completed");
-                    
-                    // Wait for device to be ready before setting event mode
-                    iqs7211e_wait_for_ready(dev, 500);
-                    
-                    // Set event mode
-                    ret = iqs7211e_set_event_mode(dev, true);
-                    if (ret < 0) {
-                        LOG_DBG("%s end 4", __func__);
-                        return ret;
-                    }
-                    
-                    /* Sleep using the active mode report rate from init data if present */
-                    {
-                        uint8_t len = 0;
-                        const uint8_t *rec = iqs7211e_find_init_record(cfg, IQS7211E_MM_ACTIVE_MODE_RR, &len);
-                        uint32_t sleep_ms = (uint32_t)rec[0] + 1;
-                        k_sleep(K_MSEC(sleep_ms));
-                    }
-
-                    data->init_complete = true;
-                    LOG_DBG("Init complete");
-                } else {
-                    LOG_ERR("ATI timeout");
-                    LOG_DBG("%s end 5", __func__);
-                    return -ETIMEDOUT;
-                }
-            } else {
-                LOG_ERR("Memory map write failed");
-                LOG_DBG("%s end 6", __func__);
-                return ret;
-            }
-        } else {
-            LOG_ERR("No reset event detected");
-            LOG_DBG("%s end 7", __func__);
-            return -EIO;
-        }
-    } else {
-        LOG_ERR("Device not found, product: 0x%04x", data->product_number);
-        LOG_DBG("%s end 8", __func__);
-        return -ENODEV;
-    }
-    
-    LOG_DBG("%s end 9", __func__);
-    return 0;
-}
-
-static int iqs7211e_init(const struct device *dev) {
-    LOG_DBG("%s start", __func__);
-    const struct iqs7211e_config *cfg = dev->config;
-    struct iqs7211e_data *data = dev->data;
-    int ret;
-    
-    if (!device_is_ready(cfg->i2c.bus)) {
-        LOG_ERR("I2C bus %s is not ready", cfg->i2c.bus->name);
-        LOG_DBG("%s end 1", __func__);
-        return -ENODEV;
-    }
-    
-    data->dev = dev;
-    data->init_complete = false;
-    data->previous_valid = false;
-    data->pending_click_type = 0;
-    data->scroll_was_active = false;
-    data->x_resolution = 0;
-    data->y_resolution = 0;
-    data->resolution_valid = false;
-    data->gesture_started_near_edge = false;
-    data->scroller_axis_lock = IQS7211E_SCROLL_AXIS_NONE;
-
-    if (!iqs7211e_load_resolution_from_init(cfg, data)) {
-        LOG_WRN("Failed to parse X/Y resolution from init data, edge tap suppression disabled");
-    }
-
-#if defined(CONFIG_IQS7211E_SCROLLER_INERTIA) && CONFIG_IQS7211E_SCROLLER_INERTIA
-    data->inertia_wheel_velocity_q8 = 0;
-    data->inertia_hwheel_velocity_q8 = 0;
-    data->inertia_wheel_remainder_q8 = 0;
-    data->inertia_hwheel_remainder_q8 = 0;
-    data->inertia_last_wheel_time = 0;
-    data->inertia_last_hwheel_time = 0;
-    data->inertia_running = false;
-#endif
-    
-    k_work_init(&data->motion_work, iqs7211e_motion_work_handler);
-    k_work_init_delayable(&data->click_work, iqs7211e_click_work_handler);
-#if defined(CONFIG_IQS7211E_SCROLLER_INERTIA) && CONFIG_IQS7211E_SCROLLER_INERTIA
-    k_work_init_delayable(&data->inertia_work, iqs7211e_inertia_work_handler);
-#endif
-    
-#if DT_INST_NODE_HAS_PROP(0, power_gpios)
-    if (gpio_is_ready_dt(&cfg->power_gpio)) {
-        ret = gpio_pin_configure_dt(&cfg->power_gpio, GPIO_OUTPUT_INACTIVE);
-        if (ret != 0) {
-            LOG_ERR("Power pin configuration failed: %d", ret);
-            LOG_DBG("%s end 2", __func__);
-            return ret;
-        }
-        
-        k_sleep(K_MSEC(500));
-        
-        ret = gpio_pin_set_dt(&cfg->power_gpio, 1);
-        if (ret != 0) {
-            LOG_ERR("Power pin set failed: %d", ret);
-            LOG_DBG("%s end 3", __func__);
-            return ret;
-        }
-        
-        k_sleep(K_MSEC(10));
-    }
-#endif
-    
-    if (gpio_is_ready_dt(&cfg->irq_gpio)) {
-        ret = gpio_pin_configure_dt(&cfg->irq_gpio, GPIO_INPUT);
-        if (ret != 0) {
-            LOG_ERR("IRQ pin configuration failed: %d", ret);
-            LOG_DBG("%s end 4", __func__);
-            return ret;
-        }
-        
-        gpio_init_callback(&data->motion_cb, iqs7211e_motion_handler, BIT(cfg->irq_gpio.pin));
-        
-        ret = gpio_add_callback_dt(&cfg->irq_gpio, &data->motion_cb);
-        if (ret < 0) {
-            LOG_ERR("Could not set motion callback: %d", ret);
-            LOG_DBG("%s end 5", __func__);
-            return ret;
-        }
-
-        LOG_DBG("IRQ pin configured, pin: %d", cfg->irq_gpio.pin);
-    }
-    
-    ret = iqs7211e_configure(dev);
-    if (ret != 0) {
-        LOG_ERR("Device configuration failed: %d", ret);
-        LOG_DBG("%s end 6", __func__);
-        return ret;
-    }
-    
-    if (gpio_is_ready_dt(&cfg->irq_gpio)) {
-        ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
-        if (ret != 0) {
-            LOG_ERR("Motion interrupt configuration failed: %d", ret);
-            LOG_DBG("%s end 7", __func__);
-            return ret;
-        }
-    }
-    
-    ret = pm_device_runtime_enable(dev);
-    if (ret < 0) {
-        LOG_ERR("Failed to enable runtime power management: %d", ret);
-        LOG_DBG("%s end 8", __func__);
-        return ret;
-    }
-    
-    LOG_DBG("%s end 9", __func__);
-    return 0;
-}
-
-#ifdef CONFIG_PM_DEVICE
-static int iqs7211e_pm_action(const struct device *dev, enum pm_device_action action) {
-    LOG_DBG("%s start", __func__);
-    const struct iqs7211e_config *cfg = dev->config;
-    struct iqs7211e_data *data = dev->data;
-    int ret;
-    
-    switch (action) {
-    case PM_DEVICE_ACTION_SUSPEND:
-        if (gpio_is_ready_dt(&cfg->irq_gpio)) {
-            ret = gpio_pin_interrupt_configure_dt(&cfg->irq_gpio, GPIO_INT_DISABLE);
-            if (ret < 0) {
-                LOG_ERR("Failed to disable IRQ interrupt: %d", ret);
-                LOG_DBG("%s end 1", __func__);
-                return ret;
-            }
-            
-            ret = gpio_pin_configure_dt(&cfg->irq_gpio, GPIO_DISCONNECTED);
-            if (ret < 0) {
-                LOG_ERR("Failed to disconnect IRQ GPIO: %d", ret);
-                LOG_DBG("%s end 2", __func__);
-                return ret;
-            }
-        }
-
-        iqs7211e_suspend(dev);
-
-    #if defined(CONFIG_IQS7211E_SCROLLER_INERTIA) && CONFIG_IQS7211E_SCROLLER_INERTIA
-        iqs7211e_stop_inertia_scroll(data);
-    #endif
-        
-        data->init_complete = false;
-        break;
-        
-    case PM_DEVICE_ACTION_RESUME:
-
-        iqs7211e_resume(dev);
-        
-        if (gpio_is_ready_dt(&cfg->irq_gpio)) {
-            ret = gpio_pin_configure_dt(&cfg->irq_gpio, GPIO_INPUT);
-            if (ret < 0) {
-                LOG_ERR("Failed to configure IRQ GPIO: %d", ret);
-                LOG_DBG("%s end 3", __func__);
-                return ret;
-            }
-            
-            ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
-            if (ret < 0) {
-                LOG_ERR("Failed to enable IRQ interrupt: %d", ret);
-                LOG_DBG("%s end 4", __func__);
-                return ret;
-            }
-        }
-        
-        ret = iqs7211e_configure(dev);
-        if (ret < 0) {
-            LOG_ERR("Failed to reconfigure device: %d", ret);
-            LOG_DBG("%s end 5", __func__);
-            return ret;
-        }
-        break;
-        
-    default:
-        LOG_DBG("%s end 6", __func__);
-        return -ENOTSUP;
-    }
-    
-    LOG_DBG("%s end 7", __func__);
-    return 0;
-}
-#endif
-
-/* If a device-tree node provides `init-symbol` and `init-length`,
- * use that C symbol as the init data for the instance. The
- * DT property name in DTS is `init-symbol` but DT macros use
- * an underscore variant `init_symbol`.
- */
-#define IQS7211E_INIT(n)                                                                         \
-    extern const uint8_t iqs7211e_init_default[];                                                \
-    COND_CODE_1(DT_INST_NODE_HAS_PROP(n, init_symbol),                                           \
-        (extern const uint8_t DT_PROP(DT_DRV_INST(n), init_symbol_STRING_UNQUOTED )[];),                             \
-        ())                                                                                      \
-    static const struct iqs7211e_config iqs7211e_cfg_##n = {                                      \
-        .i2c = I2C_DT_SPEC_INST_GET(n),                                                           \
-        .irq_gpio = GPIO_DT_SPEC_INST_GET(n, irq_gpios),                                          \
-        .power_gpio = GPIO_DT_SPEC_INST_GET_OR(n, power_gpios, {0}),                              \
-        .init_data = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, init_symbol),                           \
-            (DT_PROP(DT_DRV_INST(n), init_symbol_STRING_UNQUOTED )),                                               \
-            (iqs7211e_init_default)),                                                             \
-        .init_len = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, init_symbol),                             \
-            (DT_PROP(DT_DRV_INST(n), init_length)),                                               \
-            IQS7211E_INIT_DATA_LEN),                                                         \
-        .scroller_mode = DT_INST_PROP_OR(n, scroller_mode, false),                                  \
-        .v_invert = DT_INST_PROP_OR(n, v_invert, false),                                        \
-        .h_invert = DT_INST_PROP_OR(n, h_invert, false),                                        \
-    };                                                                                           \
-                                                                                                 \
-    static struct iqs7211e_data iqs7211e_data_##n;                                                \
-                                                                                                 \
-    PM_DEVICE_DT_INST_DEFINE(n, iqs7211e_pm_action);                                              \
-                                                                                                 \
-    DEVICE_DT_INST_DEFINE(n, iqs7211e_init, PM_DEVICE_DT_INST_GET(n), &iqs7211e_data_##n,         \
-                          &iqs7211e_cfg_##n, POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);
-
-DT_INST_FOREACH_STATUS_OKAY(IQS7211E_INIT)
-
-#endif // DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
