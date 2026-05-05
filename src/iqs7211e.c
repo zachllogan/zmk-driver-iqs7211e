@@ -411,7 +411,7 @@ static bool iqs7211e_is_ready(const struct device *dev) {
     }
     
     // RDY pin is active LOW, so device is ready when pin is LOW
-    bool ret = gpio_pin_get_dt(&cfg->irq_gpio);
+    bool ret = !gpio_pin_get_dt(&cfg->irq_gpio);
     LOG_DBG("%s end 2", __func__);
     return ret;
 }
@@ -1279,12 +1279,14 @@ static int iqs7211e_pm_action(const struct device *dev, enum pm_device_action ac
             ret = gpio_pin_configure_dt(&cfg->irq_gpio, GPIO_INPUT);
             if (ret < 0) {
                 LOG_ERR("Failed to configure IRQ GPIO: %d", ret);
+                LOG_DBG("%s end 3", __func__);
                 return ret;
             }
             
             ret = iqs7211e_interrupt_configure(dev, GPIO_INT_LEVEL_LOW);
             if (ret < 0) {
                 LOG_ERR("Failed to enable IRQ interrupt: %d", ret);
+                LOG_DBG("%s end 4", __func__);
                 return ret;
             }
         }
@@ -1292,6 +1294,7 @@ static int iqs7211e_pm_action(const struct device *dev, enum pm_device_action ac
         ret = iqs7211e_configure(dev);
         if (ret < 0) {
             LOG_ERR("Failed to reconfigure device: %d", ret);
+            LOG_DBG("%s end 5", __func__);
             return ret;
         }
         break;
